@@ -105,15 +105,7 @@ def batch() -> Generator[None, None, None]:
         # Prints: "x=4"
         ```
     """
-    graph.batch_depth += 1
-    debug_log(f"Batch start depth={graph.batch_depth}")
-    try:
-        yield
-    finally:
-        graph.batch_depth -= 1
-        debug_log(f"Batch end depth={graph.batch_depth}")
-        if graph.batch_depth == 0:
-            _flush_effects()
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -122,13 +114,11 @@ def batch() -> Generator[None, None, None]:
 
 
 def start_batch():
-    graph.batch_depth += 1
+    pass
 
 
 def end_batch():
-    graph.batch_depth -= 1
-    if graph.batch_depth == 0:
-        _flush_effects()
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -137,31 +127,7 @@ def end_batch():
 
 
 def _flush_effects():
-    if graph.batch_depth > 0:
-        return
-
-    # Cycle guard
-    iterations = 0
-    while graph.batched_effect_head is not None:
-        iterations += 1
-        if iterations > graph.MAX_BATCH_ITERATIONS:
-            raise RuntimeError("Reactive cycle detected (effect iterations exceeded)")
-
-        head = graph.batched_effect_head
-        graph.batched_effect_head = None
-
-        # Traverse linked list
-        current = head
-        while current is not None:
-            nxt = current._next_batched_effect
-            current._next_batched_effect = None
-            current._flags &= ~graph.NOTIFIED
-            if not (current._flags & graph.DISPOSED) and current._needs_run():
-                try:
-                    current._run_callback()
-                except Exception as e:
-                    debug_log(f"Effect execution error: {e}")
-            current = nxt
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +136,7 @@ def _flush_effects():
 
 
 def enqueue_effect(effect):
-    if graph.batched_effect_head is not None:
-        effect._next_batched_effect = graph.batched_effect_head
-    graph.batched_effect_head = effect
+    pass
 
 
 # Async task helper (central so tests can monkeypatch)
@@ -180,10 +144,8 @@ _create_task: Optional[Callable] = None
 
 
 def create_task(coro):
-    if _create_task is not None:
-        return _create_task(coro)
-    return asyncio.create_task(coro)
+    pass
 
 
 def flush_now():
-    _flush_effects()
+    pass

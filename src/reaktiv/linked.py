@@ -199,7 +199,7 @@ class LinkedSignal(ComputeSignal[T], Generic[T]):
         ):
             # Parameterized decorator: @Linked(equal=...)
             def decorator(f: Callable[[], T]) -> LinkedSignal[T]:
-                return cls(f, equal=equal)
+                pass
 
             return decorator
 
@@ -244,29 +244,7 @@ class LinkedSignal(ComputeSignal[T], Generic[T]):
 
         # Compute function used by ComputeSignal
         def _compute() -> T:
-            if self._simple_pattern:
-                return cast(Callable[[], T], self._computation)()
-
-            if self._source_fn is None:
-                raise RuntimeError("Source function is None in advanced pattern")
-
-            src_val = self._source_fn()  # tracked
-
-            prev_state: Optional[PreviousState[T]] = None
-            try:
-                prev_val = cast(Optional[T], self._value)
-            except Exception:
-                prev_val = None
-            if prev_val is not None:
-                prev_state = PreviousState(prev_val, cast(Any, self._previous_source))
-
-            with untracked():
-                result = cast(
-                    Callable[[Any, Optional[PreviousState[T]]], T], self._computation
-                )(src_val, prev_state)
-
-            self._previous_source = src_val
-            return result
+            pass
 
         super().__init__(_compute, equal=equal)
         debug_log(f"LinkedSignal created with simple_pattern={self._simple_pattern}")
@@ -284,14 +262,10 @@ class LinkedSignal(ComputeSignal[T], Generic[T]):
         return self.get()
 
     def set(self, new_value: T) -> None:
-        debug_log(f"LinkedSignal manual set() called with value: {new_value}")
-        # If never computed, trigger initial computation to establish dependencies
-        if self._version == 0:
-            super()._refresh()
-        super()._set_internal(new_value)
+        pass
 
     def update(self, update_fn: Callable[[T], T]) -> None:
-        self.set(update_fn(cast(T, self._value)))
+        pass
 
 
 Linked = LinkedSignal

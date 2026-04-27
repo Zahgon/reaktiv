@@ -110,31 +110,4 @@ async def to_async_iter(signal: ReadableSignal[T], initial: bool = True) -> Asyn
             # ... continue processing
         ```
     """
-    queue = asyncio.Queue()
-
-    # Create an effect that pushes new values to the queue
-    def push_to_queue():
-        try:
-            value = signal.get()
-            queue.put_nowait(value)
-        except Exception as e:
-            # In case of errors, put the exception in the queue
-            queue.put_nowait(e)
-
-    # Create the effect
-    effect = Effect(push_to_queue)
-
-    try:
-        while True:
-            value = await queue.get()
-
-            if not initial:
-                # If initial is False, skip the first value
-                initial = True
-                continue
-            elif isinstance(value, Exception):
-                raise value
-            yield value
-    finally:
-        # Clean up the effect when the iterator is done
-        effect.dispose()
+    pass

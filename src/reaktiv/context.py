@@ -79,23 +79,4 @@ def untracked(
         # No print - effect doesn't depend on 'other'
         ```
     """
-    if func_or_signal is None:
-
-        @contextmanager
-        def _ctx():
-            prev = graph.set_active_consumer(None)
-            try:
-                yield
-            finally:
-                graph.set_active_consumer(prev)
-
-        return _ctx()
-
-    prev = graph.set_active_consumer(None)
-    try:
-        if isinstance(func_or_signal, Signal):
-            return func_or_signal._value
-        else:
-            return func_or_signal()  # type: ignore[misc]
-    finally:
-        graph.set_active_consumer(prev)
+    pass

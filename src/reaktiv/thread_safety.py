@@ -21,9 +21,7 @@ def set_thread_safety(enabled: bool) -> None:
     Args:
         enabled: Whether to enable thread safety features.
     """
-    global _THREAD_SAFETY_ENABLED
-    _THREAD_SAFETY_ENABLED = bool(enabled)
-    debug_log(f"Thread safety {'enabled' if enabled else 'disabled'}")
+    pass
 
 
 def is_thread_safety_enabled() -> bool:
@@ -32,4 +30,4 @@ def is_thread_safety_enabled() -> bool:
     Returns:
         True if thread safety is enabled, False otherwise.
     """
-    return _THREAD_SAFETY_ENABLED
+    pass

@@ -123,29 +123,13 @@ class Signal(Generic[T]):
 
     # Producer API expected by graph core
     def _subscribe_edge(self, edge: graph.Edge) -> None:
-        targets = self._targets
-        if targets is not edge and edge.prev_target is None:
-            edge.next_target = targets
-            self._targets = edge
-            if targets is not None:
-                targets.prev_target = edge
+        pass
 
     def _unsubscribe_edge(self, edge: graph.Edge) -> None:
-        if self._targets is None:
-            return
-        prev = edge.prev_target
-        nxt = edge.next_target
-        if prev is not None:
-            prev.next_target = nxt
-            edge.prev_target = None
-        if nxt is not None:
-            nxt.prev_target = prev
-            edge.next_target = None
-        if edge is self._targets:
-            self._targets = nxt
+        pass
 
     def _refresh(self) -> bool:
-        return True
+        pass
 
     def get(self) -> T:
         """Get the current value of the signal.
@@ -164,20 +148,7 @@ class Signal(Generic[T]):
             value = counter()      # 42
             ```
         """
-        # Use lock to protect the read operation only when thread safety is enabled
-        if self._lock is not None:
-            with self._lock:
-                edge = graph.add_dependency(self)
-                if edge is not None:
-                    edge.version = self._version
-                debug_log(f"Signal get() returning value: {self._value}")
-                return self._value
-        else:
-            edge = graph.add_dependency(self)
-            if edge is not None:
-                edge.version = self._version
-            debug_log(f"Signal get() returning value: {self._value}")
-            return self._value
+        pass
 
     def set(self, new_value: T) -> None:
         """Set a new value for the signal and notify subscribers if it changed.
@@ -205,53 +176,11 @@ class Signal(Generic[T]):
             signal.set({"x": 1})  # Notification (different object)
             ```
         """
-        debug_log(
-            f"Signal set() called with new_value: {new_value} (old_value: {self._value})"
-        )
-        # Disallow side effects from within a ComputeSignal's computation
-        active = graph.active_consumer.get()
-        if active is not None:
-            if isinstance(active, ComputeSignal):
-                raise RuntimeError(
-                    "Side effect detected: Cannot set Signal from within a ComputeSignal computation"
-                )
-
-        # Use lock to protect the entire set operation when thread safety is enabled
-        if self._lock is not None:
-            with self._lock:
-                self._set_internal(new_value)
-        else:
-            self._set_internal(new_value)
+        pass
 
     def _set_internal(self, new_value: T) -> None:
         """Internal set method that does the actual work without locking."""
-        should_update = True
-        if self._equal is not None:
-            try:
-                if self._equal(self._value, new_value):
-                    should_update = False
-            except Exception as e:
-                debug_log(f"Error in custom equality check during set: {e}")
-        else:
-            if self._value is new_value:
-                should_update = False
-        if not should_update:
-            return
-
-        self._value = new_value
-        self._version += 1
-        graph.global_version += 1
-
-        start_batch()
-        try:
-            node = self._targets
-            while node is not None:
-                target = node.target
-                if target is not None:  # Skip dead weakrefs
-                    target._notify()
-                node = node.next_target
-        finally:
-            end_batch()
+        pass
 
     def update(self, update_fn: Callable[[T], T]) -> None:
         """Atomically update the signal using a function of its current value.
@@ -277,14 +206,7 @@ class Signal(Generic[T]):
             print(name())  # "ALICE"
             ```
         """
-        # Use lock to protect the read-modify-write operation when thread safety is enabled
-        if self._lock is not None:
-            with self._lock:
-                new_value = update_fn(self._value)
-                self._set_internal(new_value)
-        else:
-            new_value = update_fn(self._value)
-            self._set_internal(new_value)
+        pass
 
     def as_readonly(self) -> "ReadonlySignal[T]":
         """Return a readonly wrapper that exposes only read access to this signal.
@@ -312,9 +234,7 @@ class Signal(Generic[T]):
             # counter.set(5)  # AttributeError: 'ReadonlySignal' has no attribute 'set'
             ```
         """
-        if self._readonly_cache is None:
-            self._readonly_cache = ReadonlySignal(self)
-        return self._readonly_cache
+        pass
 
 
 class ReadonlySignal(Generic[T]):
@@ -362,7 +282,7 @@ class ReadonlySignal(Generic[T]):
         Returns:
             The current value
         """
-        return self._signal.get()
+        pass
 
 
 class ComputeSignal(Signal[T]):
@@ -500,161 +420,30 @@ class ComputeSignal(Signal[T]):
 
     def _is_running_in_current_thread(self) -> bool:
         """Check if this signal is currently being computed in the current thread."""
-        try:
-            return getattr(self._thread_local, "is_running", False)
-        except AttributeError:
-            return False
+        pass
 
     def _set_running_in_current_thread(self, running: bool) -> None:
         """Set the running state for the current thread."""
-        self._thread_local.is_running = running
+        pass
 
     # Producer API (override to detect first/last subscriber)
     def _subscribe_edge(self, edge: graph.Edge) -> None:
-        had_subs = self._targets is not None
-        super()._subscribe_edge(edge)
-        if not had_subs and self._targets is not None:
-            # became watched
-            self._flags |= graph.OUTDATED | graph.TRACKING
-            # lazily subscribe to existing sources
-            node = self._sources
-            while node is not None:
-                node.source._subscribe_edge(node)
-                node = node.next_source
+        pass
 
     def _unsubscribe_edge(self, edge: graph.Edge) -> None:
-        super()._unsubscribe_edge(edge)
-        if self._targets is None:
-            # lost last subscriber
-            self._flags &= ~graph.TRACKING
-            node = self._sources
-            while node is not None:
-                node.source._unsubscribe_edge(node)
-                node = node.next_source
+        pass
 
     # Consumer refresh logic
     def _refresh(self) -> bool:
         # clear NOTIFIED
-        self._flags &= ~graph.NOTIFIED
-
-        # Thread-safe cycle detection
-        if self._is_running_in_current_thread():
-            return False  # cycle guard: appear stale to caller
-
-        force = bool(self._flags & graph.HAS_ERROR)
-
-        # If tracking and not marked outdated, value can't have changed
-        if (
-            not force
-            and (self._flags & (graph.OUTDATED | graph.TRACKING)) == graph.TRACKING
-        ):
-            return True
-        # clear outdated bit
-        self._flags &= ~graph.OUTDATED
-
-        if not force and self._global_version_seen == graph.global_version:
-            return True
-        self._global_version_seen = graph.global_version
-
-        # Thread-safe running tracking
-        self._set_running_in_current_thread(True)
-
-        # Skip recompute if nothing changed in sources
-        if not force and self._version > 0 and not graph.needs_to_recompute(self):
-            self._set_running_in_current_thread(False)
-            return True
-
-        prev = graph.set_active_consumer(self)
-        try:
-            graph.prepare_sources(self)
-            try:
-                self._dependencies.clear()
-                value = self._fn()
-                # equality check
-                if (
-                    self._equal is not None
-                    and self._version > 0
-                    and not (self._flags & graph.HAS_ERROR)
-                ):
-                    old_value = cast(T, self._value)
-                    try:
-                        if self._equal(old_value, value):
-                            # Update internal value without bumping version
-                            self._value = value
-                            # clear previous error if any
-                            self._flags &= ~graph.HAS_ERROR
-                            self._last_error = None
-                        else:
-                            self._value = value
-                            self._version += 1
-                            self._flags &= ~graph.HAS_ERROR
-                            self._last_error = None
-                    except Exception as e:
-                        debug_log(f"Error in custom equality check: {e}")
-                        self._value = value
-                        self._version += 1
-                        self._flags &= ~graph.HAS_ERROR
-                        self._last_error = None
-                else:
-                    # default identity equality: bump only when identity changes
-                    if not (
-                        self._version > 0
-                        and not (self._flags & graph.HAS_ERROR)
-                        and self._value is value
-                    ):
-                        self._value = value
-                        self._version += 1
-                        self._flags &= ~graph.HAS_ERROR
-                        self._last_error = None
-            except BaseException as err:  # sticky error until next recompute attempt
-                self._last_error = err
-                self._flags |= graph.HAS_ERROR
-                self._value = err  # for debug repr
-                self._version += 1
-        finally:
-            graph.cleanup_sources(self)
-            graph.set_active_consumer(prev)
-            # Remove current thread from running state (thread-safe cleanup)
-            self._set_running_in_current_thread(False)
-        # After recompute, capture current sources as dependencies for tests
-        deps = set()
-        node = self._sources
-        while node is not None:
-            deps.add(node.source)
-            node = node.next_source
-        self._dependencies = deps
-        return True
+        pass
 
     def _notify(self) -> None:
-        if not (self._flags & graph.NOTIFIED):
-            self._flags |= graph.OUTDATED | graph.NOTIFIED
-            node = self._targets
-            while node is not None:
-                target = node.target
-                if target is not None:  # Skip dead weakrefs
-                    target._notify()
-                node = node.next_target
+        pass
 
     def get(self) -> T:
         # Thread-safe circular dependency detection
-        if self._is_running_in_current_thread():
-            raise RuntimeError("Circular dependency detected")
-
-        # Use lock to protect the refresh operation only when thread safety is enabled
-        if self._computation_lock is not None:
-            with self._computation_lock:
-                self._refresh()
-        else:
-            self._refresh()
-
-        # participate as producer if someone depends on us
-        edge = graph.add_dependency(self)
-        if edge is not None:
-            edge.version = self._version
-        if self._flags & graph.HAS_ERROR:
-            assert self._last_error is not None
-            raise self._last_error
-        return self._value  # type: ignore[return-value]
+        pass
 
     def set(self, new_value: T) -> None:
         raise AttributeError("Cannot manually set value of ComputeSignal")
@@ -731,45 +520,4 @@ def Computed(
         print(sorted_items())  # [1, 2, 3]
         ```
     """
-    """
-    Create a computed signal that derives its value from other signals.
-
-    Can be used as a direct factory or as a decorator:
-
-    Usage as factory:
-        count = Signal(1)
-        double = Computed(lambda: count() * 2)
-
-    Usage as factory with equality:
-        count = Signal(1)
-        double = Computed(lambda: count() * 2, equal=lambda a, b: a == b)
-
-    Usage as decorator (without parameters):
-        count = Signal(1)
-        @Computed
-        def double() -> int:
-            return count() * 2
-
-    Usage as decorator (with equality parameter):
-        count = Signal(1)
-        @Computed(equal=lambda a, b: a == b)
-        def double() -> int:
-            return count() * 2
-
-    Args:
-        func: The computation function (when used as factory or decorator
-            without parens)
-        equal: Optional custom equality function for change detection
-
-    Returns:
-        A ComputeSignal instance or a decorator function
-    """
-    if func is not None:
-        # Direct call: Computed(lambda: ...) or @Computed decorator
-        return ComputeSignal(func, equal=equal)
-    else:
-        # Parameterized decorator: @Computed(equal=...)
-        def decorator(f: Callable[[], T]) -> ComputeSignal[T]:
-            return ComputeSignal(f, equal=equal)
-
-        return decorator
+    pass

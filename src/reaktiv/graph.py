@@ -83,13 +83,11 @@ class Edge:
     @property
     def target(self) -> Optional[_Consumer]:
         """Get the target consumer, dereferencing weakref if needed."""
-        if isinstance(self._target_ref, weakref.ref):
-            return self._target_ref()
-        return self._target_ref
+        pass
 
     def is_alive(self) -> bool:
         """Check if the target is still alive."""
-        return self.target is not None
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -99,68 +97,16 @@ class Edge:
 
 def _is_effect(consumer: _Consumer) -> bool:
     """Check if consumer is an Effect."""
-    # Avoid circular import by checking type name
-    return type(consumer).__name__ == "Effect"
+    pass
 
 
 def _create_edge_with_weakref_cleanup(source: _Producer, consumer: _Consumer, prev_head: Optional[Edge]) -> Edge:
     """Create an Edge with weakref for Effects and cleanup callback."""
-    
-    # Use weakref for Effects to allow garbage collection
-    if _is_effect(consumer):
-        def on_effect_gc(weak_ref: "weakref.ref[_Consumer]") -> None:
-            """Called when an Effect is garbage collected - clean up the edge."""
-            # Remove edge from source's targets list
-            edge_to_remove = None
-            current = source._targets
-            while current is not None:
-                if current._target_ref is weak_ref:
-                    edge_to_remove = current
-                    break
-                current = current.next_target
-            
-            if edge_to_remove is not None:
-                source._unsubscribe_edge(edge_to_remove)
-        
-        target_ref = weakref.ref(consumer, on_effect_gc)
-    else:
-        target_ref = consumer
-    
-    return Edge(source, target_ref, prev_head)
+    pass
 
 
 def add_dependency(source: _Producer) -> Optional[Edge]:
-    consumer = active_consumer.get()
-    if consumer is None:
-        return None
-
-    node = source._node
-    if node is None or node.target is not consumer:
-        prev_head = consumer._sources
-        edge = _create_edge_with_weakref_cleanup(source, consumer, prev_head)
-        if prev_head is not None:
-            prev_head.next_source = edge
-        consumer._sources = edge
-        source._node = edge
-        if consumer._flags & TRACKING:
-            source._subscribe_edge(edge)
-        return edge
-    elif node.version == -1:
-        node.version = 0
-        if node.next_source is not None:
-            nxt = node.next_source
-            prv = node.prev_source
-            if prv is not None:
-                prv.next_source = nxt
-            nxt.prev_source = prv
-            prev_head = consumer._sources
-            node.prev_source = prev_head
-            node.next_source = None
-            if prev_head is not None:
-                prev_head.next_source = node
-            consumer._sources = node
-        return node
-    return None
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -169,35 +115,11 @@ def add_dependency(source: _Producer) -> Optional[Edge]:
 
 
 def prepare_sources(target: _Consumer) -> None:
-    edge = target._sources
-    while edge is not None:
-        rollback = edge.source._node
-        if rollback is not None:
-            edge.rollback_node = rollback
-        edge.source._node = edge
-        edge.version = -1
-        if edge.next_source is None:
-            target._sources = edge
-        edge = edge.next_source
+    pass
 
 
 def cleanup_sources(target: _Consumer) -> None:
-    edge = target._sources
-    head: Optional[Edge] = None
-    while edge is not None:
-        prev_edge = edge.prev_source
-        if edge.version == -1:
-            edge.source._unsubscribe_edge(edge)
-            if prev_edge is not None:
-                prev_edge.next_source = edge.next_source
-            if edge.next_source is not None:
-                edge.next_source.prev_source = prev_edge
-        else:
-            head = edge
-        edge.source._node = edge.rollback_node
-        edge.rollback_node = None
-        edge = prev_edge
-    target._sources = head
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -206,17 +128,7 @@ def cleanup_sources(target: _Consumer) -> None:
 
 
 def needs_to_recompute(target: _Consumer) -> bool:
-    edge = target._sources
-    while edge is not None:
-        src = edge.source
-        if (
-            src._version != edge.version
-            or not src._refresh()
-            or src._version != edge.version
-        ):
-            return True
-        edge = edge.next_source
-    return False
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +137,4 @@ def needs_to_recompute(target: _Consumer) -> bool:
 
 
 def set_active_consumer(consumer: Optional[_Consumer]) -> Optional[_Consumer]:
-    prev = active_consumer.get()
-    active_consumer.set(consumer)
-    return prev
+    pass
